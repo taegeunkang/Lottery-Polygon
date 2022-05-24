@@ -3,7 +3,7 @@ node_modules
 coverage
 coverage.json
 typechain
-
+mnemonic.txt
 #Hardhat files
 cache
 artifacts
