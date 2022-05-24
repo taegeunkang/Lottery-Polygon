@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: None
-// An example of a consumer contract that relies on a subscription for funding.
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.4;
 
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-contract VRFv2Consumer is VRFConsumerBaseV2 {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract VRFv2Consumer is VRFConsumerBaseV2, Ownable {
 
   using SafeMath for uint256;
   VRFCoordinatorV2Interface COORDINATOR;
@@ -24,11 +25,7 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
   uint256 public s_requestId;
   address s_owner;
   uint32 numWords = 1;
-  uint32 numbers_in_lottery = 5;
-
- 
-
-  mapping(address => uint32[][]) public entries;
+  uint32 numbersInLottery = 5;
 
 
   constructor(uint64 subscriptionId) VRFConsumerBaseV2(vrfCoordinator) {
@@ -38,7 +35,8 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
   }
 
   // Assumes the subscription is funded sufficiently.
-  function requestRandomness() public {
+  // https://vrf.chain.link/mumbai
+  function requestRandomness() external onlyOwner {
     // Will revert if subscription is not set and funded.
     s_requestId = COORDINATOR.requestRandomWords(
       keyHash,
@@ -49,37 +47,26 @@ contract VRFv2Consumer is VRFConsumerBaseV2 {
     );
 
   }
-  // this makes lottery tickets(composite of 5 numbers) with s_randomWords created by calling requestRandomness
-  // but fullfilling randomewords require more time after transaction confirmed about requestRandomness()
-  // so keep requesting for return tickets at frontend.
-  function makeTickets(uint256 _amount) public {
-    for (uint256 i = 0; i < _amount; i++) {
-        uint256 randomNumber = uint256(keccak256(abi.encode(s_randomWords[0], i)));
-        uint32[] memory lottery = new uint32[](numbers_in_lottery);
 
-        for(uint32 j =0; j < numbers_in_lottery; j++) {
-          uint32 num = uint32(randomNumber.mod(100));
-          randomNumber = randomNumber.div(100);
+  function makeTickets(uint32 _seed) external view returns (uint32[] memory) {
+    require(s_randomWords[0] != 0 , "not fulfill yet");
 
-          lottery[j] = num;
-        }
-        entries[msg.sender].push(lottery);
+    uint256 randomNumber = uint256(keccak256(abi.encode(s_randomWords[0], _seed)));
+    uint32[] memory lottery = new uint32[](numbersInLottery);
+    for(uint32 j =0; j < numbersInLottery; j++) {
+      uint32 num = uint32(randomNumber.mod(100));
+      randomNumber = randomNumber.div(100);
+      lottery[j] = num;
     }
-
+    return lottery;
   }
+    
 
-  
+  // fallback for requestRandomness
   function fulfillRandomWords(
     uint256, /* requestId */
     uint256[] memory randomWords
   ) internal override {
     s_randomWords = randomWords;
-  }
-
-
-
-  modifier onlyOwner() {
-    require(msg.sender == s_owner);
-    _;
   }
 }
