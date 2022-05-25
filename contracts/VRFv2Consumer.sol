@@ -18,7 +18,7 @@ contract VRFv2Consumer is VRFConsumerBaseV2, Ownable {
   address vrfCoordinator = 0x7a1BaC17Ccc5b313516C5E16fb24f7659aA5ebed;
   bytes32 keyHash = 0x4b09e658ed251bcafeebbc69400383d49f344ace09b9576fe248bb02c003fe9f;
   uint32 callbackGasLimit = 100000;
-  uint16 requestConfirmations = 3;
+  uint16 requestConfirmations = 2;
 
 
   uint256[] public s_randomWords;
@@ -36,7 +36,7 @@ contract VRFv2Consumer is VRFConsumerBaseV2, Ownable {
 
   // Assumes the subscription is funded sufficiently.
   // https://vrf.chain.link/mumbai
-  function requestRandomness() external onlyOwner {
+  function requestRandomness() public onlyOwner {
     // Will revert if subscription is not set and funded.
     s_requestId = COORDINATOR.requestRandomWords(
       keyHash,
@@ -48,7 +48,7 @@ contract VRFv2Consumer is VRFConsumerBaseV2, Ownable {
 
   }
 
-  function makeTickets(uint32 _seed) external view returns (uint32[] memory) {
+  function makeLotteries(uint32 _seed) public view returns (uint32[] memory) {
     require(s_randomWords[0] != 0 , "not fulfill yet");
 
     uint256 randomNumber = uint256(keccak256(abi.encode(s_randomWords[0], _seed)));
