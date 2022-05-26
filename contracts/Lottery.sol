@@ -8,18 +8,23 @@ import "./VRFv2Consumer.sol";
 
 contract Lottery is Ownable {
     using SafeMath for uint256;
+
+    struct Lotto {
+        uint32[] lotto;
+    }
+
     IERC20 USDT;
     VRFv2Consumer consumer;
-    mapping(address => uint32[][]) public lotteries;
+    mapping(address => Lotto[]) lotteries;
     mapping(uint256 => address) public entries;
     uint256 public totalLottery;
-    uint32[] winner;
+    Lotto winningNumber;
     uint32 numbersInLottery = 5;
 
-    //using USDT mumbai : 0xA02f6adc7926efeBBd59Fd43A84f4E0c0c91e832
-    constructor(address _vrfv2Interface, address _daiAdderss) {
+    //using USDT mumbai : 0x3813e82e6f7098b9583FC0F33a962D02018B6803
+    constructor(address _vrfv2Interface, address _usdtAdderss) {
         consumer = VRFv2Consumer(_vrfv2Interface);
-        USDT = IERC20(_daiAdderss);
+        USDT = IERC20(_usdtAdderss);
         totalLottery = 1;
     }
 
@@ -34,9 +39,17 @@ contract Lottery is Ownable {
 
         for(uint32 i=0; i< _amount; i++) {
             uint32[] memory ticket = consumer.makeLotteries(i);
-            lotteries[msg.sender].push(ticket);
+            lotteries[msg.sender].push(Lotto(ticket));
         }
         totalLottery = totalLottery.add(_amount);
+    }
+
+    function amountOfLotto() public view returns (uint256) {
+        return lotteries[msg.sender].length;
+    }
+    
+    function getHavingLottos() public view returns (Lotto[] memory) {
+        return lotteries[msg.sender];
     }
 
     // 5 => 1st prize
@@ -44,15 +57,20 @@ contract Lottery is Ownable {
     // 3 => 3rd prize
     // 2 => 4th prize
     // 1 => 5th prize
-    function pickWinNumber() public onlyOwner {
-        winner = consumer.makeLotteries(uint32(block.timestamp));
+    function pickWinningNumber() public onlyOwner {
+        uint32[] memory res = consumer.makeLotteries(uint32(block.timestamp));
+        winningNumber = Lotto(res);
     }
 
-    function getRank(uint32[] memory _lottery) public view returns(uint32) {
+    function getWinningNumber() public view returns (Lotto memory) {
+        return winningNumber;
+    }
+
+    function getRank(Lotto memory _lottery) private view returns(uint32) {
         uint256 count = 0;
         for(uint32 i=0; i < numbersInLottery; i++) {
 
-            if(winner[i] == _lottery[i]){
+            if(winningNumber.lotto[i] == _lottery.lotto[i]){
                 count = count.add(1);
             }
 
@@ -65,10 +83,10 @@ contract Lottery is Ownable {
         for(uint256 i =1; i <totalLottery; i++) {
 
             address user = entries[i];
-            uint32[][] memory lottery = lotteries[user];
+            Lotto[] memory lottos = lotteries[user];
 
-            for (uint j =0; j < lottery.length; j++) {
-                uint32 rank = getRank(lottery[j]);
+            for (uint j =0; j < lottos.length; j++) {
+                uint32 rank = getRank(lottos[j]);
                 if(rank != 0) {
                     transfer(user, rank);
                 }
