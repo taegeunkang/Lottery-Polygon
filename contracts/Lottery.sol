@@ -15,11 +15,12 @@ contract Lottery is Ownable {
 
     IERC20 USDT;
     VRFv2Consumer consumer;
+    Lotto winningNumber;
     mapping(address => Lotto[]) lotteries;
     mapping(uint256 => address) public entries;
-    uint256 public totalLottery;
-    Lotto winningNumber;
     uint32 numbersInLottery = 5;
+    uint256 public totalLottery;
+    uint256 decimal = 10 ** 18;
 
     //using USDT mumbai : 0x3813e82e6f7098b9583FC0F33a962D02018B6803
     constructor(address _vrfv2Interface, address _usdtAdderss) {
@@ -28,35 +29,30 @@ contract Lottery is Ownable {
         totalLottery = 1;
     }
 
-    //if getting Lottery is first time, put address in entreis.
-    // entries will use for picking winner.
-    function getLotteries(uint32 _amount) public {
+    function getLotteries(uint256 _amount) public {
+        uint256 price = _amount.div(40).mul(decimal); // Lottery each price 0.025
+        transferFrom(msg.sender, address(this), price);
         
         if(lotteries[msg.sender].length == 0){
             entries[totalLottery] = msg.sender;
         }
 
-
         for(uint32 i=0; i< _amount; i++) {
             uint32[] memory ticket = consumer.makeLotteries(i);
             lotteries[msg.sender].push(Lotto(ticket));
         }
+
         totalLottery = totalLottery.add(_amount);
     }
 
     function amountOfLotto() public view returns (uint256) {
         return lotteries[msg.sender].length;
     }
-    
+
     function getHavingLottos() public view returns (Lotto[] memory) {
         return lotteries[msg.sender];
     }
 
-    // 5 => 1st prize
-    // 4 => 2nd prize
-    // 3 => 3rd prize
-    // 2 => 4th prize
-    // 1 => 5th prize
     function pickWinningNumber() public onlyOwner {
         uint32[] memory res = consumer.makeLotteries(uint32(block.timestamp));
         winningNumber = Lotto(res);
@@ -64,19 +60,6 @@ contract Lottery is Ownable {
 
     function getWinningNumber() public view returns (Lotto memory) {
         return winningNumber;
-    }
-
-    function getRank(Lotto memory _lottery) private view returns(uint32) {
-        uint256 count = 0;
-        for(uint32 i=0; i < numbersInLottery; i++) {
-
-            if(winningNumber.lotto[i] == _lottery.lotto[i]){
-                count = count.add(1);
-            }
-
-        }
-        uint32 rank = uint32((count > 0 ) ? 6 - count : 0);
-        return rank;
     }
 
     function pickWinners() public onlyOwner {
@@ -88,7 +71,7 @@ contract Lottery is Ownable {
             for (uint j =0; j < lottos.length; j++) {
                 uint32 rank = getRank(lottos[j]);
                 if(rank != 0) {
-                    transfer(user, rank);
+                    transferFrom(address(this), user, prize(rank));
                 }
             }
 
@@ -105,16 +88,31 @@ contract Lottery is Ownable {
         return value;
     }
 
-    function transfer(address _to, uint32 _rank) public {
-        uint amount = prize(_rank);
-        require(USDT.balanceOf(address(this)) >= amount, "balance is not enough to giving prize");
-        _transfer(_to, amount);
+
+    function transferFrom(address _from, address _to, uint256 _amount) public {
+        _amount = _amount * decimal;
+        require(USDT.balanceOf(_from) >= _amount, "Not eonough tokens.");
+        _transferFrom(_from, _to, _amount);
         
     }
 
-    function _transfer(address _to, uint256 _amount) private {
-        (bool success, bytes memory data) = address(USDT).call(abi.encodeWithSelector(bytes4(keccak256("transfer(address,uint)")), _to, _amount));
+    function getRank(Lotto memory _lottery) private view returns(uint32) {
+        uint256 count = 0;
+        for(uint32 i=0; i < numbersInLottery; i++) {
+
+            if(winningNumber.lotto[i] == _lottery.lotto[i]){
+                count = count.add(1);
+            }
+
+        }
+        uint32 rank = uint32((count > 0 ) ? 6 - count : 0);
+        return rank;
+    }
+
+    function _transferFrom(address _from, address _to, uint256 _amount) private {
+        (bool success, bytes memory data) = address(USDT).call(abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint)")),_from, _to, _amount));
         require(success && (data.length == 0 || abi.decode(data, (bool))), "TF");
 
     }
+ 
 }
