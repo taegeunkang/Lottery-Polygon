@@ -20,9 +20,9 @@ contract Lottery is Ownable {
     mapping(uint256 => address) public entries;
     uint32 numbersInLottery = 5;
     uint256 public totalLottery;
-    uint256 decimal = 10 ** 18;
+    uint256 decimal = 10 ** 6;
 
-    //using USDT mumbai : 0x3813e82e6f7098b9583FC0F33a962D02018B6803
+    //using USDT mumbai :0x3813e82e6f7098b9583FC0F33a962D02018B6803
     constructor(address _vrfv2Interface, address _usdtAdderss) {
         consumer = VRFv2Consumer(_vrfv2Interface);
         USDT = IERC20(_usdtAdderss);
@@ -30,8 +30,7 @@ contract Lottery is Ownable {
     }
 
     function getLotteries(uint256 _amount) public {
-        uint256 price = _amount.div(40).mul(decimal); // Lottery each price 0.025
-        transferFrom(msg.sender, address(this), price);
+        transferFrom(msg.sender, address(this), _amount);
         
         if(lotteries[msg.sender].length == 0){
             entries[totalLottery] = msg.sender;
@@ -87,10 +86,14 @@ contract Lottery is Ownable {
         else if (_rank == 5) value = 1;
         return value;
     }
+    function allowance(address _from , address _to) public view returns (uint256){
+        uint256 val = USDT.allowance(_from, _to);
+        return val;
+    }
 
 
     function transferFrom(address _from, address _to, uint256 _amount) public {
-        _amount = _amount * decimal;
+        _amount = _amount.mul(decimal);
         require(USDT.balanceOf(_from) >= _amount, "Not eonough tokens.");
         _transferFrom(_from, _to, _amount);
         
