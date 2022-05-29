@@ -4,34 +4,36 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./VRFv2Consumer.sol";
 
 contract Lottery is Ownable {
     using SafeMath for uint256;
-
+    using SafeERC20 for IERC20;
     struct Lotto {
         uint32[] lotto;
     }
 
-    IERC20 USDT;
+    IERC20 token;
     VRFv2Consumer consumer;
     Lotto winningNumber;
     mapping(address => Lotto[]) lotteries;
     mapping(uint256 => address) public entries;
     uint32 numbersInLottery = 5;
     uint256 public totalLottery;
-    uint256 decimal = 10 ** 6;
+    uint256 decimal = 10 ** 18;
 
     //using USDT mumbai :0x3813e82e6f7098b9583FC0F33a962D02018B6803
-    constructor(address _vrfv2Interface, address _usdtAdderss) {
+    //DAI mumbai : 0xcB1e72786A6eb3b44C2a2429e317c8a2462CFeb1
+    constructor(address _vrfv2Interface, address _tokenAdderss) {
         consumer = VRFv2Consumer(_vrfv2Interface);
-        USDT = IERC20(_usdtAdderss);
+        token = IERC20(_tokenAdderss);
         totalLottery = 1;
     }
 
     function getLotteries(uint256 _amount) public {
-        transferFrom(msg.sender, address(this), _amount);
-        
+        token.safeTransferFrom(msg.sender, address(this), priceOfLotteries(_amount));
+
         if(lotteries[msg.sender].length == 0){
             entries[totalLottery] = msg.sender;
         }
@@ -70,7 +72,7 @@ contract Lottery is Ownable {
             for (uint j =0; j < lottos.length; j++) {
                 uint32 rank = getRank(lottos[j]);
                 if(rank != 0) {
-                    transferFrom(address(this), user, prize(rank));
+                    token.safeTransferFrom(address(this), user, prize(rank));
                 }
             }
 
@@ -86,17 +88,15 @@ contract Lottery is Ownable {
         else if (_rank == 5) value = 1;
         return value;
     }
-    function allowance(address _from , address _to) public view returns (uint256){
-        uint256 val = USDT.allowance(_from, _to);
-        return val;
+
+    function priceOfLotteries(uint256 _amount) public view returns (uint256) {
+        _amount = _amount.mul(decimal);
+        _amount = _amount.div(4);
+        return _amount;
     }
 
-
-    function transferFrom(address _from, address _to, uint256 _amount) public {
-        _amount = _amount.mul(decimal);
-        require(USDT.balanceOf(_from) >= _amount, "Not eonough tokens.");
-        _transferFrom(_from, _to, _amount);
-        
+    function balanceOf(address _from) public view returns(uint256) {
+        return token.balanceOf(_from);
     }
 
     function getRank(Lotto memory _lottery) private view returns(uint32) {
@@ -112,10 +112,4 @@ contract Lottery is Ownable {
         return rank;
     }
 
-    function _transferFrom(address _from, address _to, uint256 _amount) private {
-        (bool success, bytes memory data) = address(USDT).call(abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint)")),_from, _to, _amount));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), "TF");
-
-    }
- 
 }
