@@ -47,8 +47,12 @@ contract VRFv2Consumer is VRFConsumerBaseV2, Ownable {
     );
 
   }
+  
+  function getRandomNumber() public view returns (uint256) {
+    return s_randomWords[0];
+  }
 
-  function makeLotteries(uint32 _seed) public view returns (uint32[] memory) {
+  function makeLotteries(uint256 _seed) public view returns (uint32[] memory) {
     require(s_randomWords[0] != 0 , "not fulfill yet");
 
     uint256 randomNumber = uint256(keccak256(abi.encode(s_randomWords[0], _seed)));

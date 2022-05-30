@@ -14,6 +14,10 @@ contract Lottery is Ownable {
         uint32[] lotto;
     }
 
+    enum TimeLock {
+        Open, Close
+    }
+
     IERC20 token;
     VRFv2Consumer consumer;
     Lotto winningNumber;
@@ -22,24 +26,26 @@ contract Lottery is Ownable {
     uint32 numbersInLottery = 5;
     uint256 public totalLottery;
     uint256 decimal = 10 ** 18;
+    TimeLock lock;
 
-    //using USDT mumbai :0x3813e82e6f7098b9583FC0F33a962D02018B6803
     //DAI mumbai : 0xcB1e72786A6eb3b44C2a2429e317c8a2462CFeb1
     constructor(address _vrfv2Interface, address _tokenAdderss) {
         consumer = VRFv2Consumer(_vrfv2Interface);
         token = IERC20(_tokenAdderss);
         totalLottery = 1;
+        lock = TimeLock.Open;
     }
 
-    function getLotteries(uint256 _amount) public {
+    function getLotteries(uint256 _amount) public Lock {
         token.safeTransferFrom(msg.sender, address(this), priceOfLotteries(_amount));
 
         if(lotteries[msg.sender].length == 0){
             entries[totalLottery] = msg.sender;
         }
 
-        for(uint32 i=0; i< _amount; i++) {
-            uint32[] memory ticket = consumer.makeLotteries(i);
+        for(uint256 i=0; i< _amount; i++) {
+            uint256 seed = i.add(uint256(uint160(msg.sender))).div(2);
+            uint32[] memory ticket = consumer.makeLotteries(seed);
             lotteries[msg.sender].push(Lotto(ticket));
         }
 
@@ -55,7 +61,7 @@ contract Lottery is Ownable {
     }
 
     function pickWinningNumber() public onlyOwner {
-        uint32[] memory res = consumer.makeLotteries(uint32(block.timestamp));
+        uint32[] memory res = consumer.makeLotteries(uint256(block.timestamp));
         winningNumber = Lotto(res);
     }
 
@@ -72,21 +78,21 @@ contract Lottery is Ownable {
             for (uint j =0; j < lottos.length; j++) {
                 uint32 rank = getRank(lottos[j]);
                 if(rank != 0) {
-                    token.safeTransferFrom(address(this), user, prize(rank));
+                    token.safeTransfer(user, prize(rank));
                 }
             }
 
         }
     }
 
-    function prize(uint32 _rank) public pure returns (uint32) {
+    function prize(uint32 _rank) public pure returns (uint256) {
         uint32 value;
         if (_rank == 1) value = 10000;
         else if (_rank == 2) value = 2000;
         else if (_rank == 3) value = 500;
         else if (_rank == 4) value = 10;
         else if (_rank == 5) value = 1;
-        return value;
+        return value * 10 ** 18;
     }
 
     function priceOfLotteries(uint256 _amount) public view returns (uint256) {
@@ -97,6 +103,19 @@ contract Lottery is Ownable {
 
     function balanceOf(address _from) public view returns(uint256) {
         return token.balanceOf(_from);
+    }
+
+    function resetEntry() public onlyOwner {
+        for(uint256 i = 1; i< totalLottery; i++) {
+            address user = entries[i];
+            delete lotteries[user];
+            delete entries[i];
+            totalLottery = 0;
+        }
+    }
+
+    function setTimeLock(uint32 _bit) public onlyOwner {
+        lock = (_bit == 0) ? TimeLock.Open : TimeLock.Close;
     }
 
     function getRank(Lotto memory _lottery) private view returns(uint32) {
@@ -110,6 +129,11 @@ contract Lottery is Ownable {
         }
         uint32 rank = uint32((count > 0 ) ? 6 - count : 0);
         return rank;
+    }
+
+    modifier Lock {
+        require(lock == TimeLock.Open, "Locked");
+        _;
     }
 
 }
