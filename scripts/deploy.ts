@@ -6,6 +6,8 @@
 import { ethers } from "hardhat";
 
 async function main() {
+
+  const DAI = "0xcB1e72786A6eb3b44C2a2429e317c8a2462CFeb1";
   console.log("VRFv2Consumer deploying...");
   const VRFv2Consumer = await ethers.getContractFactory("VRFv2Consumer");
   const Consumer = await VRFv2Consumer.deploy(283);
@@ -13,7 +15,7 @@ async function main() {
 
   console.log("Lottery deploying...");
   const Lottery = await ethers.getContractFactory("Lottery");
-  const lottery = await Lottery.deploy(Consumer.address);
+  const lottery = await Lottery.deploy(Consumer.address, DAI);
   await lottery.deployed();
 
   
