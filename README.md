@@ -8,4 +8,4 @@
 
 [Demo](https://lottery-demo.surge.sh/)
 
-![image](https://user-images.githubusercontent.com/53002135/171114440-f07872f0-92b5-43cb-a7b9-84dc255d696f.png)
+![image](https://user-images.githubusercontent.com/53002135/173567158-88155458-4d89-4e3f-afb8-248728d53725.png)
